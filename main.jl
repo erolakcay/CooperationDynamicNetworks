@@ -1,7 +1,7 @@
 #!/usr/bin/env julia
 
 ### Code for Akcay, 2017 bioRxiv.
-### Executable file. Type "./main.jl --help" in shell for usage
+### Make executable. Type "./main.jl --help" in shell for usage
 
 # the functions required to run the simulations are defined in MainFunctions.jl
 include("MainFunctions.jl")
