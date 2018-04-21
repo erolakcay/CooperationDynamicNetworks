@@ -1,7 +1,7 @@
 #!/usr/bin/env julia
 
 ### Code for Akcay, 2017 bioRxiv.
-### Make executable. Type "./main.jl --help" in shell for usage
+### Executable file. Type "./main.jl --help" in shell for usage
 
 # the functions required to run the simulations are defined in MainFunctions.jl
 include("MainFunctions.jl")
@@ -31,9 +31,10 @@ type NetworkParam
     delta::Float64
     payfun::String
     replicates::Int64
+    networksaveint::Int64
 
     # Constructor. Takes keyword arguments to make it easier to call with command line arguments
-    NetworkParam(;pn::Float64=0.5, pr::Float64=0.1, netsize::Int64=100, generations::Int64=100, b::Float64=1.0, c::Float64=0.5, d::Float64=0.0, mu::Float64=0.01, evollink::Bool=false, mulink::Float64=0.0, sigmapn::Float64=0.05, sigmapr::Float64=0.01,clink::Float64=0.0,retint::Int64=0, funnoevollink::String="Coauthor", funevollink::String="Coauthor", delta::Float64=1.0, payfun::String="Lin", replicates::Int64=1) = new(pn, pr, netsize, generations, b, c, d, mu, evollink, mulink, sigmapn, sigmapr, clink, retint, funnoevollink, funevollink, delta, payfun, replicates)
+    NetworkParam(;pn::Float64=0.5, pr::Float64=0.1, netsize::Int64=100, generations::Int64=100, b::Float64=1.0, c::Float64=0.5, d::Float64=0.0, mu::Float64=0.01, evollink::Bool=false, mulink::Float64=0.0, sigmapn::Float64=0.05, sigmapr::Float64=0.01,clink::Float64=0.0,retint::Int64=0, funnoevollink::String="Coauthor", funevollink::String="Coauthor", delta::Float64=1.0, payfun::String="Lin", replicates::Int64=1, networksaveint::Int64=1) = new(pn, pr, netsize, generations, b, c, d, mu, evollink, mulink, sigmapn, sigmapr, clink, retint, funnoevollink, funevollink, delta, payfun, replicates, networksaveint)
 
 end
 
@@ -126,6 +127,10 @@ function parse_commandline()
         help = "whether to save all trajectories, or calculate the mean across all replicates"
         arg_type = Bool
         default = true
+    "--networksaveint"
+        help = "by which frequency (when data is saved) the simulation saves the full adjacency matric and type vectors. Integer; default is 0, in which case these are never saved."
+        arg_type = Int64
+        default = 0
   end
 
   return parse_args(s)
@@ -162,18 +167,24 @@ function main()
       payfunin = exppay
   end
 
+  if params.networksaveint == 0
+      simfun = runSim
+  else
+      simfun = runSimNetSave
+  end
+
   if parsed_args["saveall"] == true
       for i in 1:params.replicates
-          typehist, pnhist, prhist, degreehist, payoffhist = runSim(;pn=params.pn, pr=params.pr, netsize=params.netsize, generations=params.generations, b=params.b, c=params.c, d=params.d, mu=params.mu, evollink=params.evollink, mulink=params.mulink, sigmapn=params.sigmapn, sigmapr=params.sigmapr, clink=params.clink, retint=params.retint, funnoevollink=funnoevollinkin, funevollink=funevollinkin, delta=params.delta,payfun=payfunin)
+          typehist, pnhist, prhist, degreehist, payoffhist, finnet, fintype, pnshist, prshist = simfun(;pn=params.pn, pr=params.pr, netsize=params.netsize, generations=params.generations, b=params.b, c=params.c, d=params.d, mu=params.mu, evollink=params.evollink, mulink=params.mulink, sigmapn=params.sigmapn, sigmapr=params.sigmapr, clink=params.clink, retint=params.retint, funnoevollink=funnoevollinkin, funevollink=funevollinkin, delta=params.delta,payfun=payfunin,netsaveint=params.networksaveint)
 
           file = ismatch(r"\.jl", parsed_args["file"]) ? parsed_args["file"] : parsed_args["file"]*"-"*lpad(string(i), length(digits(params.replicates)), "0")*".jld"
 
-          save(file, "params", params, "typehist", typehist, "pn", pnhist, "pr", prhist, "degree", degreehist, "payoff", payoffhist)
+          save(file, "params", params, "typehist", typehist, "pn", pnhist, "pr", prhist, "degree", degreehist, "payoff", payoffhist, "network", finnet, "types", fintype, "pns", pnshist, "prs", prshist)
       end
   elseif parsed_args["saveall"] == false
       typehistAve, pnhistAve, prhistAve, degreehistAve, payoffhistAve = (zeros(params.generations), zeros(params.generations), zeros(params.generations), zeros(params.generations), zeros(params.generations))
       for i in 1:params.replicates
-          typehist, pnhist, prhist, degreehist, payoffhist = runSim(;pn=params.pn, pr=params.pr, netsize=params.netsize, generations=params.generations, b=params.b, c=params.c, d=params.d, mu=params.mu, evollink=params.evollink, mulink=params.mulink, sigmapn=params.sigmapn, sigmapr=params.sigmapr, clink=params.clink, retint=params.retint, funnoevollink=funnoevollinkin, funevollink=funevollinkin,delta=params.delta,payfun=payfunin)
+          typehist, pnhist, prhist, degreehist, payoffhist, finnet, fintype = runSim(;pn=params.pn, pr=params.pr, netsize=params.netsize, generations=params.generations, b=params.b, c=params.c, d=params.d, mu=params.mu, evollink=params.evollink, mulink=params.mulink, sigmapn=params.sigmapn, sigmapr=params.sigmapr, clink=params.clink, retint=params.retint, funnoevollink=funnoevollinkin, funevollink=funevollinkin,delta=params.delta,payfun=payfunin,netsaveint=params.networksaveint)
           typehistAve += typehist
           pnhistAve += pnhist
           prhistAve += prhist
